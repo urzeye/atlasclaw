@@ -498,7 +498,7 @@ def create_router() -> APIRouter:
         ctx: APIContext = Depends(get_api_context)
     ) -> SessionResponse:
         """get session"""
-        session = await ctx.session_manager.get(session_key)
+        session = await ctx.session_manager.get_session(session_key)
         if not session:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -513,8 +513,8 @@ def create_router() -> APIRouter:
             channel=key.channel,
             user_id=key.user_id,
             created_at=session.created_at,
-            last_activity=session.last_activity,
-            message_count=session.message_count,
+            last_activity=session.updated_at,
+            message_count=getattr(session, "message_count", 0),
             total_tokens=session.total_tokens
         )
         
@@ -525,15 +525,7 @@ def create_router() -> APIRouter:
         ctx: APIContext = Depends(get_api_context)
     ) -> dict[str, Any]:
         """Reset a session"""
-        success = await ctx.session_manager.reset(
-            session_key, archive=request.archive
-        )
-        
-        if not success:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Session not found: {session_key}"
-            )
+        await ctx.session_manager.reset_session(session_key, archive=request.archive)
             
         return {"status": "reset", "session_key": session_key}
         
@@ -543,7 +535,7 @@ def create_router() -> APIRouter:
         ctx: APIContext = Depends(get_api_context)
     ) -> dict[str, Any]:
         """Delete a session"""
-        success = await ctx.session_manager.delete(session_key)
+        success = await ctx.session_manager.delete_session(session_key)
         
         if not success:
             raise HTTPException(
@@ -865,22 +857,23 @@ def create_router() -> APIRouter:
         ctx: APIContext = Depends(get_api_context)
     ) -> StatusResponse:
         """get session"""
-        session = await ctx.session_manager.get(session_key)
+        session = await ctx.session_manager.get_session(session_key)
         if not session:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Session not found: {session_key}"
             )
             
-        queue_info = ctx.session_queue.get_info(session_key)
+        queue_mode = ctx.session_queue.get_mode(session_key)
+        queue_size = ctx.session_queue.queue_size(session_key)
         
         return StatusResponse(
             session_key=session_key,
             context_tokens=session.context_tokens,
             input_tokens=session.input_tokens,
             output_tokens=session.output_tokens,
-            queue_mode=queue_info.get("mode", "collect") if queue_info else "collect",
-            queue_size=queue_info.get("size", 0) if queue_info else 0
+            queue_mode=queue_mode.value,
+            queue_size=queue_size,
         )
         
     @router.post("/sessions/{session_key}/queue")
@@ -898,7 +891,7 @@ def create_router() -> APIRouter:
                 detail=f"Invalid queue mode: {request.mode}"
             )
             
-        ctx.session_queue.set_mode(session_key, mode)
+        ctx.session_queue.set_session_mode(session_key, mode)
         
         return {"session_key": session_key, "queue_mode": request.mode}
         
@@ -909,7 +902,7 @@ def create_router() -> APIRouter:
         ctx: APIContext = Depends(get_api_context)
     ) -> dict[str, Any]:
         """trigger"""
-        session = await ctx.session_manager.get(session_key)
+        session = await ctx.session_manager.get_session(session_key)
         if not session:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
