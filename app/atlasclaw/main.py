@@ -178,20 +178,7 @@ async def lifespan(app: FastAPI):
     print(f"[AtlasClaw] Registered {len(registered_tools)} built-in tools")
     
     # Load skills from multiple sources (priority: workspace > global > built-in)
-<<<<<<< HEAD
-    # 1. Provider skills from configured providers_root (lowest priority)
-    for provider_type in _global_provider_registry.list_providers():
-        template = _global_provider_registry.get_template(provider_type)
-        if template is None or not template.skills_dir.exists():
-            continue
-        _skill_registry.load_from_directory(
-            str(template.skills_dir),
-            location="built-in",
-            provider=_derive_provider_namespace(provider_type),
-        )
-<<<<<<< HEAD
-=======
-=======
+
     # 1. Built-in skills from app providers
     providers_dir = Path(__file__).parent / "providers"
     if providers_dir.exists():
@@ -200,8 +187,8 @@ async def lifespan(app: FastAPI):
                 provider_skills = provider_path / "skills"
                 if provider_skills.exists():
                     _skill_registry.load_from_directory(str(provider_skills), location="built-in")
->>>>>>> 36916e9 (feat: implement channel system and provider extensions)
->>>>>>> 7c1183a (refactor: qualify provider markdown skills)
+
+
 
     # 2. Workspace provider skills (.atlasclaw/providers)
     workspace_providers_dir = Path(workspace_path) / ".atlasclaw" / "providers"
