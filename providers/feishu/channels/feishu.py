@@ -28,7 +28,7 @@ class FeishuHandler(ChannelHandler):
     
     channel_type = "feishu"
     channel_name = "Feishu"
-    channel_icon = "🐦"
+    channel_icon = "feishu"  # Brand identifier
     channel_mode = ChannelMode.BIDIRECTIONAL
     supports_long_connection = True
     supports_webhook = False
@@ -308,29 +308,33 @@ class FeishuHandler(ChannelHandler):
         """
         return {
             "type": "object",
-            "title": "Feishu Configuration",
-            "description": "Feishu bot configuration",
+            "title": "Feishu",
+            "description": "Feishu bot configuration (requires app from Feishu Open Platform)",
             "required": ["app_id", "app_secret"],
             "properties": {
                 "app_id": {
                     "type": "string",
                     "title": "App ID",
-                    "description": "Feishu application ID (cli_xxx)",
+                    "description": "Feishu application App ID",
+                    "placeholder": "cli_xxxxxxxxxx",
                 },
                 "app_secret": {
                     "type": "string",
                     "title": "App Secret",
-                    "description": "Feishu application secret",
+                    "description": "Feishu application App Secret",
+                    "placeholder": "App secret",
                 },
                 "encrypt_key": {
                     "type": "string",
                     "title": "Encrypt Key",
                     "description": "Message encryption key (optional)",
+                    "placeholder": "For message encryption",
                 },
                 "verification_token": {
                     "type": "string",
                     "title": "Verification Token",
                     "description": "Webhook verification token (optional)",
+                    "placeholder": "For webhook verification",
                 },
             },
         }

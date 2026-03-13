@@ -3,7 +3,8 @@
     "title": "AtlasClaw AI Assistant",
     "newChat": "New Chat",
     "today": "Today",
-    "currentChat": "Current Chat"
+    "currentChat": "Current Chat",
+    "channels": "Channels"
   },
   "chat": {
     "placeholder": "Enter your question...",
@@ -21,5 +22,102 @@
     "label": "Language",
     "zhCN": "中文",
     "enUS": "English"
+  },
+  "channel": {
+    "title": "Channel Management",
+    "name_feishu": "Feishu",
+    "name_dingtalk": "DingTalk",
+    "name_wecom": "WeCom",
+    "field": {
+      "app_id": {
+        "title": "App ID",
+        "description": "Feishu application App ID",
+        "placeholder": "cli_xxxxxxxxxx"
+      },
+      "app_secret": {
+        "title": "App Secret",
+        "description": "Feishu application App Secret",
+        "placeholder": "App secret"
+      },
+      "encrypt_key": {
+        "title": "Encrypt Key",
+        "description": "Message encryption key (optional)",
+        "placeholder": "For message encryption"
+      },
+      "verification_token": {
+        "title": "Verification Token",
+        "description": "Webhook verification token (optional)",
+        "placeholder": "For webhook verification"
+      },
+      "webhook_url": {
+        "title": "Webhook URL",
+        "description": "Custom bot Webhook URL",
+        "placeholder": "https://oapi.dingtalk.com/robot/send?access_token=xxx"
+      },
+      "secret": {
+        "title": "Secret",
+        "description": "Signing secret for security verification (optional)",
+        "placeholder": "SEC..."
+      },
+      "app_key": {
+        "title": "AppKey",
+        "description": "Enterprise bot AppKey",
+        "placeholder": "dingxxxxxxxxxx"
+      },
+      "corpid": {
+        "title": "Corp ID",
+        "description": "WeCom Corp ID",
+        "placeholder": "ww..."
+      },
+      "corpsecret": {
+        "title": "Corp Secret",
+        "description": "Application secret (required with Corp ID)",
+        "placeholder": "App secret"
+      },
+      "agentid": {
+        "title": "Agent ID",
+        "description": "Application Agent ID (required with Corp ID)",
+        "placeholder": "1000001"
+      }
+    },
+    "back": "← Back",
+    "backToChat": "Back to Chat",
+    "available": "Available Channels",
+    "selectToConfig": "Select a channel type to configure",
+    "backToList": "Back to list",
+    "existingConnections": "Existing Connections",
+    "schemaLoadFailed": "Schema load failed",
+    "connectionNotFound": "Connection not found",
+    "connections": "Connections",
+    "connectionsCount": "connections",
+    "newConnection": "New Connection",
+    "editConnection": "Edit Connection",
+    "connectionName": "Connection Name",
+    "connectionNamePlaceholder": "e.g. My Feishu Bot",
+    "edit": "Edit",
+    "enable": "Enable",
+    "disable": "Disable",
+    "delete": "Delete",
+    "verify": "Verify",
+    "save": "Save",
+    "cancel": "Cancel",
+    "connected": "Enabled",
+    "disconnected": "Disabled",
+    "notConfigured": "Not configured",
+    "noChannels": "No channels available",
+    "noConnections": "No connections yet. Click the button above to create one.",
+    "loading": "Loading...",
+    "deleteConfirmTitle": "Confirm Delete",
+    "deleteConfirm": "Are you sure you want to delete this connection? This action cannot be undone.",
+    "verifySuccess": "Configuration verified successfully",
+    "verifyFailed": "Configuration verification failed",
+    "createSuccess": "Created successfully",
+    "updateSuccess": "Updated successfully",
+    "deleteSuccess": "Deleted successfully",
+    "enableSuccess": "Enabled successfully",
+    "disableSuccess": "Disabled successfully",
+    "nameRequired": "Please enter a connection name",
+    "requiredFieldsMissing": "Please fill in all required fields",
+    "saveFirst": "Please save the connection before verifying"
   }
 }

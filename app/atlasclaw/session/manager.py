@@ -107,10 +107,9 @@ class SessionManager:
     
     async def _migrate_legacy_sessions(self) -> None:
         """Migrate legacy session data (no user_id sub-dir) to sessions/default/."""
-        # Only run in legacy mode
+        # Only run migration in legacy mode
         if not self._legacy_mode:
             return
-        
         # Legacy layout: agents_dir/agent_id/sessions/sessions.json (flat)
         # New layout:    agents_dir/agent_id/sessions/default/sessions.json
         legacy_base = self.agents_dir / self.agent_id / "sessions"

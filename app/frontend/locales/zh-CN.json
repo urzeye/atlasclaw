@@ -3,7 +3,8 @@
     "title": "AtlasClaw 智能助手",
     "newChat": "新建对话",
     "today": "今天",
-    "currentChat": "当前对话"
+    "currentChat": "当前对话",
+    "channels": "渠道管理"
   },
   "chat": {
     "placeholder": "请输入您的问题...",
@@ -21,5 +22,102 @@
     "label": "语言",
     "zhCN": "中文",
     "enUS": "English"
+  },
+  "channel": {
+    "title": "渠道管理",
+    "name_feishu": "飞书",
+    "name_dingtalk": "钉钉",
+    "name_wecom": "企业微信",
+    "field": {
+      "app_id": {
+        "title": "App ID",
+        "description": "飞书应用的 App ID",
+        "placeholder": "cli_xxxxxxxxxx"
+      },
+      "app_secret": {
+        "title": "App Secret",
+        "description": "飞书应用的 App Secret",
+        "placeholder": "应用密钥"
+      },
+      "encrypt_key": {
+        "title": "加密密钥",
+        "description": "消息加密密钥（可选）",
+        "placeholder": "用于消息加密"
+      },
+      "verification_token": {
+        "title": "验证 Token",
+        "description": "Webhook 验证令牌（可选）",
+        "placeholder": "用于 Webhook 验证"
+      },
+      "webhook_url": {
+        "title": "Webhook URL",
+        "description": "自定义机器人 Webhook 地址",
+        "placeholder": "https://oapi.dingtalk.com/robot/send?access_token=xxx"
+      },
+      "secret": {
+        "title": "签名密钥",
+        "description": "安全验证的签名密钥（可选）",
+        "placeholder": "SEC..."
+      },
+      "app_key": {
+        "title": "AppKey",
+        "description": "企业内部应用的 AppKey",
+        "placeholder": "dingxxxxxxxxxx"
+      },
+      "corpid": {
+        "title": "企业 ID",
+        "description": "企业微信的企业 ID",
+        "placeholder": "ww..."
+      },
+      "corpsecret": {
+        "title": "应用密钥",
+        "description": "应用的 Secret（与企业 ID 配合使用）",
+        "placeholder": "应用密钥"
+      },
+      "agentid": {
+        "title": "应用 ID",
+        "description": "应用的 AgentId（与企业 ID 配合使用）",
+        "placeholder": "1000001"
+      }
+    },
+    "back": "← 返回",
+    "backToChat": "返回对话",
+    "available": "可用渠道",
+    "selectToConfig": "选择一个渠道类型进行配置",
+    "backToList": "返回列表",
+    "existingConnections": "已有连接",
+    "schemaLoadFailed": "Schema 加载失败",
+    "connectionNotFound": "连接不存在",
+    "connections": "连接",
+    "connectionsCount": "个连接",
+    "newConnection": "新建连接",
+    "editConnection": "编辑连接",
+    "connectionName": "连接名称",
+    "connectionNamePlaceholder": "例如：我的飞书机器人",
+    "edit": "编辑",
+    "enable": "启用",
+    "disable": "禁用",
+    "delete": "删除",
+    "verify": "验证配置",
+    "save": "保存",
+    "cancel": "取消",
+    "connected": "已启用",
+    "disconnected": "已禁用",
+    "notConfigured": "未配置",
+    "noChannels": "暂无可用渠道",
+    "noConnections": "暂无连接，点击上方按钮创建",
+    "loading": "加载中...",
+    "deleteConfirmTitle": "确认删除",
+    "deleteConfirm": "确定要删除这个连接吗？此操作不可恢复。",
+    "verifySuccess": "配置验证通过",
+    "verifyFailed": "配置验证失败",
+    "createSuccess": "创建成功",
+    "updateSuccess": "更新成功",
+    "deleteSuccess": "删除成功",
+    "enableSuccess": "已启用",
+    "disableSuccess": "已禁用",
+    "nameRequired": "请输入连接名称",
+    "requiredFieldsMissing": "请填写所有必填字段",
+    "saveFirst": "请先保存连接再验证"
   }
 }

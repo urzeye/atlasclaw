@@ -93,17 +93,12 @@ export async function loadLocale(locale) {
 
 /**
  * Initialize i18n
- * Detect language and load corresponding file
+ * Detect browser language and load corresponding file
  * @returns {Promise<string>} Current locale code
  */
 export async function initI18n() {
-    // Prefer saved locale preference
-    let locale = getSavedLocale();
-    
-    // Otherwise detect browser language
-    if (!locale) {
-        locale = detectBrowserLocale();
-    }
+    // Always use browser language
+    const locale = detectBrowserLocale();
     
     await loadLocale(locale);
     return currentLocale;
