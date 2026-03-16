@@ -12,6 +12,7 @@ aiofiles>=23.2.0
 # Enterprise Messaging SDKs
 lark-oapi>=1.5.0
 dingtalk-stream>=0.24.0
+wecom-aibot-sdk>=1.0.0
 
 # Testing
 pytest>=8.0.0

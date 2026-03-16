@@ -645,6 +645,23 @@ deep-chat::part(container) {
     margin-top: 6px;
 }
 
+.form-hint-box {
+    background: #e8f4fd;
+    border: 1px solid #b8daff;
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #004085;
+}
+
+.form-hint-box .hint-icon {
+    font-size: 16px;
+}
+
 .form-actions {
     display: flex !important;
     justify-content: flex-end !important;

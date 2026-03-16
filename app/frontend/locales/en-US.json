@@ -64,6 +64,16 @@
         "description": "Enterprise bot AppKey",
         "placeholder": "dingxxxxxxxxxx"
       },
+      "client_id": {
+        "title": "Client ID (AppKey)",
+        "description": "Application AppKey for Stream mode (recommended)",
+        "placeholder": "dingxxxxxxxxxx"
+      },
+      "client_secret": {
+        "title": "Client Secret (AppSecret)",
+        "description": "Application AppSecret (required with Client ID)",
+        "placeholder": "Application secret"
+      },
       "corpid": {
         "title": "Corp ID",
         "description": "WeCom Corp ID",
@@ -78,6 +88,16 @@
         "title": "Agent ID",
         "description": "Application Agent ID (required with Corp ID)",
         "placeholder": "1000001"
+      },
+      "bot_id": {
+        "title": "Bot ID",
+        "description": "Intelligent robot Bot ID (for WebSocket long connection)",
+        "placeholder": "aib..."
+      },
+      "bot_secret": {
+        "title": "Bot Secret",
+        "description": "Intelligent robot secret (required with Bot ID)",
+        "placeholder": "Bot secret"
       }
     },
     "back": "← Back",
@@ -118,6 +138,11 @@
     "disableSuccess": "Disabled successfully",
     "nameRequired": "Please enter a connection name",
     "requiredFieldsMissing": "Please fill in all required fields",
-    "saveFirst": "Please save the connection before verifying"
+    "saveFirst": "Please save the connection before verifying",
+    "configHint": "Configuration hint",
+    "oneOfHint": {
+      "client_id_or_webhook_url": "Fill in AppKey OR Webhook URL (choose one)",
+      "bot_id_or_webhook_url_or_corpid": "Fill in Bot ID, Webhook URL, or Corp ID (choose one)"
+    }
   }
 }

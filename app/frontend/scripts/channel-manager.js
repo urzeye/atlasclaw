@@ -379,6 +379,19 @@ function renderConfigForm(schema, values = {}) {
         </div>
     `;
     
+    // Show oneOf hint if present (e.g., "client_id or webhook_url")
+    if (schema.oneOf_hint) {
+        const hintKey = `channel.oneOfHint.${schema.oneOf_hint.replace(/ or /g, '_or_')}`;
+        const localizedHint = t(hintKey);
+        const displayHint = localizedHint.startsWith('channel.') ? schema.oneOf_hint : localizedHint;
+        html += `
+            <div class="form-hint-box">
+                <span class="hint-icon">ℹ</span>
+                <span>${t('channel.configHint')}: ${displayHint}</span>
+            </div>
+        `;
+    }
+    
     // Generate fields from schema properties
     for (const [key, prop] of Object.entries(properties)) {
         const isRequired = required.includes(key);

@@ -8,5 +8,6 @@ from .sse import SSEHandler
 from .rest import RESTHandler
 from .feishu import FeishuHandler
 from .dingtalk import DingTalkHandler
+from .wecom import WeComHandler
 
-__all__ = ["WebSocketHandler", "SSEHandler", "RESTHandler", "FeishuHandler", "DingTalkHandler"]
+__all__ = ["WebSocketHandler", "SSEHandler", "RESTHandler", "FeishuHandler", "DingTalkHandler", "WeComHandler"]

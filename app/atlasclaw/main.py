@@ -48,7 +48,7 @@ from app.atlasclaw.channels.manager import ChannelManager
 # Import channel handlers from providers
 from app.atlasclaw.channels.handlers.feishu import FeishuHandler
 from app.atlasclaw.channels.handlers.dingtalk import DingTalkHandler
-from providers.wecom.channels.wecom import WeComHandler
+from app.atlasclaw.channels.handlers.wecom import WeComHandler
 from app.atlasclaw.auth import AuthRegistry
 
 

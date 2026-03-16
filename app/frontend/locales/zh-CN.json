@@ -50,7 +50,7 @@
         "placeholder": "用于 Webhook 验证"
       },
       "webhook_url": {
-        "title": "Webhook URL",
+        "title": "Webhook 地址",
         "description": "自定义机器人 Webhook 地址",
         "placeholder": "https://oapi.dingtalk.com/robot/send?access_token=xxx"
       },
@@ -63,6 +63,16 @@
         "title": "AppKey",
         "description": "企业内部应用的 AppKey",
         "placeholder": "dingxxxxxxxxxx"
+      },
+      "client_id": {
+        "title": "应用 AppKey",
+        "description": "Stream 模式的应用 AppKey（推荐）",
+        "placeholder": "dingxxxxxxxxxx"
+      },
+      "client_secret": {
+        "title": "应用 AppSecret",
+        "description": "应用 AppSecret（与 Client ID 配合使用）",
+        "placeholder": "应用密钥"
       },
       "corpid": {
         "title": "企业 ID",
@@ -78,6 +88,16 @@
         "title": "应用 ID",
         "description": "应用的 AgentId（与企业 ID 配合使用）",
         "placeholder": "1000001"
+      },
+      "bot_id": {
+        "title": "智慧机器人 ID",
+        "description": "智慧机器人 Bot ID（用于 WebSocket 长连接）",
+        "placeholder": "aib..."
+      },
+      "bot_secret": {
+        "title": "智慧机器人密钥",
+        "description": "智慧机器人密钥（与 Bot ID 配合使用）",
+        "placeholder": "机器人密钥"
       }
     },
     "back": "← 返回",
@@ -118,6 +138,11 @@
     "disableSuccess": "已禁用",
     "nameRequired": "请输入连接名称",
     "requiredFieldsMissing": "请填写所有必填字段",
-    "saveFirst": "请先保存连接再验证"
+    "saveFirst": "请先保存连接再验证",
+    "configHint": "配置提示",
+    "oneOfHint": {
+      "client_id_or_webhook_url": "填写 AppKey 或 Webhook 地址（二选一）",
+      "bot_id_or_webhook_url_or_corpid": "填写 Bot ID、Webhook 地址或企业 ID（三选一）"
+    }
   }
 }
