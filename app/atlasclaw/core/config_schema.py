@@ -143,16 +143,35 @@ class WebhookConfig(BaseModel):
     systems: list[WebhookSystemConfig] = Field(default_factory=list)
 
 
+class TokenConfig(BaseModel):
+    """Single token endpoint configuration."""
+
+    id: str
+    provider: str
+    model: str
+    base_url: str
+    api_key: str
+    api_type: str = "openai"
+    priority: int = 0
+    weight: int = 100
+
+
 class ModelConfig(BaseModel):
     """Model configuration."""
-    primary: str = Field(default="doubao-pro-32k", description="Primary model in provider/model format")
-    fallbacks: list[str] = Field(default_factory=list, description="Fallback model list")
+
+    primary: str = Field(
+        default="main", description="Primary token id referencing an entry in tokens[]"
+    )
+    fallbacks: list[str] = Field(default_factory=list, description="Fallback token ids")
     temperature: float = Field(default=0.7, ge=0, le=2)
     max_tokens: Optional[int] = None
+    selection_strategy: str = Field(default="health", description="Token selection strategy")
+    tokens: list[TokenConfig] = Field(default_factory=list, description="Token pool configuration")
     providers: dict[str, Any] = Field(
         default_factory=dict,
-        description="LLM provider configuration, {name: {base_url, api_key, api_type, models}}",
+        description="Legacy LLM provider configuration, {name: {base_url, api_key, api_type, models}}",
     )
+
 
 
 class RetryConfig(BaseModel):

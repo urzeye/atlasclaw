@@ -24,6 +24,12 @@ from app.atlasclaw.agent.compaction import CompactionPipeline, CompactionConfig
 from app.atlasclaw.agent.prompt_builder import PromptBuilder, PromptBuilderConfig
 
 if TYPE_CHECKING:
+    from app.atlasclaw.agent.agent_pool import AgentInstancePool
+    from app.atlasclaw.agent.token_policy import DynamicTokenPolicy
+    from app.atlasclaw.core.token_interceptor import TokenHealthInterceptor
+
+
+if TYPE_CHECKING:
     from app.atlasclaw.session.manager import SessionManager
     from app.atlasclaw.session.queue import SessionQueue
     from app.atlasclaw.hooks.system import HookSystem
@@ -40,6 +46,12 @@ class AgentRunner:
         compaction: Optional[CompactionPipeline] = None,
         hook_system: Optional["HookSystem"] = None,
         session_queue: Optional["SessionQueue"] = None,
+        *,
+        agent_id: str = "main",
+        token_policy: Optional["DynamicTokenPolicy"] = None,
+        agent_pool: Optional["AgentInstancePool"] = None,
+        token_interceptor: Optional["TokenHealthInterceptor"] = None,
+        agent_factory: Optional[Any] = None,
     ):
         """Initialize the agent runner.
 
@@ -57,6 +69,12 @@ class AgentRunner:
         self.compaction = compaction or CompactionPipeline(CompactionConfig())
         self.hooks = hook_system
         self.queue = session_queue
+        self.agent_id = agent_id
+        self.token_policy = token_policy
+        self.agent_pool = agent_pool
+        self.token_interceptor = token_interceptor
+        self.agent_factory = agent_factory
+
     
     async def run(
         self,
@@ -74,16 +92,24 @@ class AgentRunner:
         assistant_emitted = False
         persist_override_messages: Optional[list[dict]] = None
         persist_override_base_len: int = 0
+        runtime_agent: Any = self.agent
+        selected_token_id: Optional[str] = None
+        release_slot: Optional[Any] = None
+
 
         try:
             yield StreamEvent.lifecycle_start()
 
+            runtime_agent, selected_token_id, release_slot = await self._resolve_runtime_agent(session_key, deps)
+
             # --:session + build prompt --
+
             session = await self.sessions.get_or_create(session_key)
             transcript = await self.sessions.load_transcript(session_key)
             message_history = self._build_message_history(transcript)
 
-            system_prompt = self._build_system_prompt(session=session, deps=deps)
+            system_prompt = self._build_system_prompt(session=session, deps=deps, agent=runtime_agent)
+
             if self.hooks:
                 prompt_ctx = await self.hooks.trigger(
                     "before_prompt_build",
@@ -150,11 +176,13 @@ class AgentRunner:
             # ========================================
             try:
                 async with self._run_iter_with_optional_override(
+                    agent=runtime_agent,
                     user_message=user_message,
                     deps=deps,
                     message_history=message_history,
                     system_prompt=system_prompt,
                 ) as agent_run:
+
                     print(f"[AgentRunner] Starting agent iteration...")
                     node_count = 0
                     async for node in agent_run:
@@ -283,7 +311,8 @@ class AgentRunner:
                                 steer_messages = self.queue.get_steer_messages(session_key)
                                 if steer_messages:
                                     combined = "\n".join(steer_messages)
-                                    yield StreamEvent.assistant_delta(f"\n[User supplement]: {combined}\n")
+                                    yield StreamEvent.assistant_delta(f"\n[用户补充]: {combined}\n")
+
 
                     # Persist the final normalized transcript.
                     final_messages = self._normalize_messages(agent_run.all_messages())
@@ -327,22 +356,75 @@ class AgentRunner:
 
         except Exception as e:
             yield StreamEvent.error_event(str(e))
+        finally:
+            if selected_token_id and self.token_interceptor is not None:
+                headers = self._extract_rate_limit_headers(deps)
+                if headers:
+                    self.token_interceptor.on_response(selected_token_id, headers)
+            if release_slot is not None:
+                release_slot()
+
+    async def _resolve_runtime_agent(
+        self,
+        session_key: str,
+        deps: SkillDeps,
+    ) -> tuple[Any, Optional[str], Optional[Any]]:
+        """Resolve runtime agent instance and optional semaphore release callback."""
+        if self.token_policy is None or self.agent_pool is None or self.agent_factory is None:
+            return self.agent, None, None
+
+        extra = deps.extra if isinstance(deps.extra, dict) else {}
+        provider = extra.get("provider") if isinstance(extra.get("provider"), str) else None
+        model = extra.get("model") if isinstance(extra.get("model"), str) else None
+
+        token = self.token_policy.get_or_select_session_token(
+            session_key,
+            provider=provider,
+            model=model,
+        )
+        if token is None:
+            return self.agent, None, None
+
+        instance = await self.agent_pool.get_or_create(
+            self.agent_id,
+            token,
+            self.agent_factory,
+        )
+        await instance.concurrency_sem.acquire()
+        return instance.agent, token.token_id, instance.concurrency_sem.release
+
+    def _extract_rate_limit_headers(self, deps: SkillDeps) -> dict[str, str]:
+        """Best-effort extraction of ratelimit headers from deps.extra."""
+        extra = deps.extra if isinstance(deps.extra, dict) else {}
+        candidates = [
+            extra.get("rate_limit_headers"),
+            extra.get("response_headers"),
+            extra.get("llm_response_headers"),
+        ]
+        for candidate in candidates:
+            if isinstance(candidate, dict):
+                return {str(k): str(v) for k, v in candidate.items()}
+        return {}
 
     @asynccontextmanager
+
     async def _run_iter_with_optional_override(
         self,
         *,
+        agent: Any,
         user_message: str,
         deps: SkillDeps,
         message_history: list[dict],
         system_prompt: str,
     ):
+
         """Run `agent.iter()` with optional system-prompt overrides."""
         print(f"[AgentRunner] _run_iter_with_optional_override called")
         print(f"[AgentRunner] user_message: {user_message[:100]}...")
         print(f"[AgentRunner] message_history: {len(message_history)} messages")
         
-        override_factory = getattr(self.agent, "override", None)
+        override_factory = getattr(agent, "override", None)
+
         if callable(override_factory) and system_prompt:
             try:
                 override_cm = override_factory(system_prompt=system_prompt)
@@ -358,28 +440,31 @@ class AgentRunner:
             print(f"[AgentRunner] Using async context manager")
             async with override_cm:
                 print(f"[AgentRunner] Calling agent.iter()...")
-                async with self.agent.iter(
+                async with agent.iter(
                     user_message,
                     deps=deps,
                     message_history=message_history,
                 ) as agent_run:
+
                     print(f"[AgentRunner] agent.iter() returned, yielding agent_run")
                     yield agent_run
             return
 
         print(f"[AgentRunner] Using sync context manager")
         with override_cm:
-            async with self.agent.iter(
+            async with agent.iter(
                 user_message,
                 deps=deps,
                 message_history=message_history,
             ) as agent_run:
+
                 yield agent_run
 
-    def _build_system_prompt(self, session: Any, deps: SkillDeps) -> str:
+    def _build_system_prompt(self, session: Any, deps: SkillDeps, *, agent: Optional[Any] = None) -> str:
         """Build the runtime system prompt for the current session."""
         skills = self._collect_skills_snapshot(deps)
-        tools = self._collect_tools_snapshot()
+        tools = self._collect_tools_snapshot(agent=agent or self.agent)
+
         md_skills = self._collect_md_skills_snapshot(deps)
         target_md_skill = self._collect_target_md_skill(deps)
         provider_contexts = self._collect_provider_contexts(deps)
@@ -455,9 +540,10 @@ class AgentRunner:
         except Exception:
             return {}
 
-    def _collect_tools_snapshot(self) -> list[dict]:
+    def _collect_tools_snapshot(self, *, agent: Any) -> list[dict]:
         """Collect tool name and description pairs for prompt building."""
-        raw_tools = getattr(self.agent, "tools", None)
+        raw_tools = getattr(agent, "tools", None)
+
         if not raw_tools:
             return []
 

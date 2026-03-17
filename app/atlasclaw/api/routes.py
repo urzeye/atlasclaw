@@ -24,6 +24,8 @@ from pydantic import BaseModel, Field
 
 from ..session.manager import SessionManager
 from ..session.context import SessionKey, SessionScope, ChatType as SessionChatType
+from ..agent.routing import AgentRouter
+
 from ..session.queue import SessionQueue, QueueMode
 from ..skills.registry import SkillRegistry
 from ..memory.manager import MemoryManager
@@ -183,8 +185,11 @@ API context
     skill_registry: SkillRegistry
     memory_manager: Optional[MemoryManager] = None
     sse_manager: Optional[SSEManager] = None
-    agent_runner: Optional[Any] = None  # AgentRunner instance
+    agent_runner: Optional[Any] = None  # Backward compatibility: main runner
+    agent_runners: dict[str, Any] | None = None
+    agent_router: Optional[AgentRouter] = None
     service_provider_registry: Optional[Any] = None  # ServiceProviderRegistry instance
+
     available_providers: dict[str, list[str]] = None
     provider_instances: dict[str, dict[str, dict[str, Any]]] = None
     webhook_manager: Optional[WebhookDispatchManager] = None
@@ -201,6 +206,11 @@ API context
             self.available_providers = {}
         if self.provider_instances is None:
             self.provider_instances = {}
+        if self.agent_runners is None:
+            self.agent_runners = {}
+        if self.agent_runner is None and self.agent_runners:
+            self.agent_runner = self.agent_runners.get("main") or next(iter(self.agent_runners.values()), None)
+
 
 
 # context(apply)
@@ -318,21 +328,28 @@ async def _execute_agent_run(
     _user_info = user_info or ANONYMOUS_USER
     
     try:
-        # AgentRunner must be configured
-        if not ctx.agent_runner:
+        target_agent_id = SessionKey.from_string(session_key).agent_id or "main"
+        runner = None
+        if ctx.agent_runners:
+            runner = ctx.agent_runners.get(target_agent_id) or ctx.agent_runners.get("main")
+        if runner is None:
+            runner = ctx.agent_runner
+
+        if not runner:
             raise RuntimeError(
                 "AgentRunner not configured. "
                 "Ensure LLM provider is properly configured in atlasclaw.json"
             )
-        
-        deps = _build_scoped_deps(ctx, _user_info, session_key)
 
-        async for event in ctx.agent_runner.run(
+        deps = _build_scoped_deps(ctx, _user_info, session_key, extra={"agent_id": target_agent_id})
+
+        async for event in runner.run(
             session_key=session_key,
             user_message=message,
             deps=deps,
             timeout_seconds=timeout_seconds
         ):
+
             # Convert StreamEvent to SSE event
             if event.type == "lifecycle":
                 ctx.sse_manager.push_lifecycle(run_id, event.phase)

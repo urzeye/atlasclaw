@@ -113,7 +113,10 @@ initializeConfiguration manager
         if self._runtime_overrides:
             config_dict = self._deep_merge(config_dict, self._runtime_overrides)
         
-        # 6. Create configuration object
+        # 6. Expand environment variable placeholders in config dict
+        config_dict = self._expand_env_vars(config_dict)
+        
+        # 7. Create configuration object
         try:
             self._config = AtlasClawConfig(**config_dict)
         except ValidationError as e:
@@ -123,6 +126,22 @@ initializeConfiguration manager
         
         self._loaded = True
         return self._config
+    
+    def _expand_env_vars(self, obj: Any) -> Any:
+        """Recursively expand environment variable placeholders in config.
+        
+        Placeholders in format ${VAR_NAME} are replaced with environment variable values.
+        """
+        if isinstance(obj, str):
+            if obj.startswith("${") and obj.endswith("}"):
+                var_name = obj[2:-1]
+                return os.environ.get(var_name, obj)
+            return obj
+        elif isinstance(obj, dict):
+            return {k: self._expand_env_vars(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [self._expand_env_vars(item) for item in obj]
+        return obj
     
     def _load_workspace_config(self) -> Optional[dict]:
         """Load workspace configuration."""

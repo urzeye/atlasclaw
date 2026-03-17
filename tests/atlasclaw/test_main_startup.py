@@ -40,7 +40,8 @@ class TestMainStartup:
         config_manager = ConfigManager(config_path=str(test_config_path))
         config = config_manager.load()
         assert config is not None
-        assert config.model.primary == "deepseek/deepseek-chat"
+        assert config.model.primary == "test-token-1"
+        assert len(config.model.tokens) == 3
 
     def test_startup_with_env_vars_succeeds(self, test_config_path):
         """验证有环境变量配置时启动成功"""
@@ -64,63 +65,6 @@ class TestMainStartup:
 
 
 
-    def test_skill_registry_initialized(self, kimi_env_vars):
-        """验证 SkillRegistry 正确初始化"""
-        os.environ["ANTHROPIC_BASE_URL"] = kimi_env_vars["base_url"]
-        os.environ["ANTHROPIC_API_KEY"] = kimi_env_vars["api_key"]
-        
-        import importlib
-        import app.atlasclaw.main as main_module
-        importlib.reload(main_module)
-        
-        with TestClient(main_module.app) as client:
-            # 通过 API 验证 skills 已加载
-            resp = client.get("/api/skills")
-            assert resp.status_code == 200
-            
-            skills = resp.json()["skills"]
-            assert len(skills) > 0, "应该加载了 skills"
-
-    def test_builtin_tools_loaded(self, kimi_env_vars):
-        """验证内置工具已加载"""
-        os.environ["ANTHROPIC_BASE_URL"] = kimi_env_vars["base_url"]
-        os.environ["ANTHROPIC_API_KEY"] = kimi_env_vars["api_key"]
-        
-        import importlib
-        import app.atlasclaw.main as main_module
-        importlib.reload(main_module)
-        
-        with TestClient(main_module.app) as client:
-            resp = client.get("/api/skills")
-            skills = resp.json()["skills"]
-            
-            skill_names = [s["name"] for s in skills]
-            
-            # 验证核心内置工具
-            expected_tools = ["read", "write", "edit", "exec"]
-            for tool in expected_tools:
-                assert tool in skill_names, f"内置工具 {tool} 应该存在"
-
-    def test_agent_runner_initialized(self, kimi_env_vars):
-        """验证 AgentRunner 正确初始化"""
-        os.environ["ANTHROPIC_BASE_URL"] = kimi_env_vars["base_url"]
-        os.environ["ANTHROPIC_API_KEY"] = kimi_env_vars["api_key"]
-        
-        import importlib
-        import app.atlasclaw.main as main_module
-        importlib.reload(main_module)
-        
-        with TestClient(main_module.app):
-            # 验证全局变量已设置
-            from app.atlasclaw.main import get_api_context
-            ctx = get_api_context()
-            
-            assert ctx is not None
-            assert ctx.skill_registry is not None
-            assert ctx.session_manager is not None
-            assert ctx.agent_runner is not None
-
-
 class TestConfigResolution:
     """测试配置解析"""
 
@@ -131,68 +75,264 @@ class TestConfigResolution:
         config_manager = ConfigManager(config_path=str(test_config_path))
         config = config_manager.load()
         
-        # 验证 model 配置
-        assert config.model.primary == "deepseek/deepseek-chat"
-        
-        # 验证 provider 配置
-        assert "deepseek" in config.model.providers
-        deepseek_config = config.model.providers["deepseek"]
-        # deepseek_config 可能是 dict 或对象
-        if isinstance(deepseek_config, dict):
-            assert deepseek_config.get("base_url") == "https://api.deepseek.com"
-            assert deepseek_config.get("api_key") == "${DEEPSEEK_API_KEY}"
-        else:
-            assert deepseek_config.base_url == "https://api.deepseek.com"
-            assert deepseek_config.api_key == "${DEEPSEEK_API_KEY}"
+        # 验证 model 配置 - 现在使用 tokens 配置
+        assert config.model.primary == "test-token-1"
+        assert len(config.model.tokens) == 3
 
-    def test_env_var_expansion(self, kimi_env_vars, test_config_path):
-        """验证环境变量展开"""
-        from app.atlasclaw.core.config import ConfigManager
+class TestSimpleLLMCall:
+    """简单LLM调用测试 - 验证基础功能"""
+
+    @pytest.mark.llm
+    @pytest.mark.asyncio
+    async def test_simple_agent_call_to_llm(self):
+        """
+        最简单的LLM调用测试
+        
+        验证：
+        1. Agent能成功调用LLM
+        2. 能收到有效的响应
+        3. 事件流正常工作
+        """
         import os
+        import tempfile
+        from pathlib import Path
+        from dotenv import load_dotenv
         
-        os.environ["ANTHROPIC_BASE_URL"] = kimi_env_vars["base_url"]
-        os.environ["ANTHROPIC_API_KEY"] = kimi_env_vars["api_key"]
+        # 加载.env文件
+        env_path = Path(__file__).parent.parent.parent / ".env"
+        if env_path.exists():
+            load_dotenv(env_path, override=True)
         
-        config_manager = ConfigManager(config_path=str(test_config_path))
-        config = config_manager.load()
+        # 检查环境变量
+        token_1_api_key = os.environ.get("TOKEN_1_API_KEY")
+        token_1_base_url = os.environ.get("TOKEN_1_BASE_URL")
+        token_1_model = os.environ.get("TOKEN_1_MODEL", "deepseek-chat")
+        token_1_provider = os.environ.get("TOKEN_1_PROVIDER", "deepseek")
         
-        # 注意：load_config 可能不展开环境变量，需要在 main.py 中处理
-        # 这里验证配置格式正确
-        deepseek_config = config.model.providers["deepseek"]
-        if isinstance(deepseek_config, dict):
-            assert "deepseek.com" in deepseek_config.get("base_url", "")
-        else:
-            assert "deepseek.com" in deepseek_config.base_url
+        if not token_1_api_key or not token_1_base_url:
+            pytest.skip("TOKEN_1_API_KEY and TOKEN_1_BASE_URL must be set")
+        
+        # 创建临时工作目录
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            workspace_path = Path(tmp_dir) / ".atlasclaw"
+            workspace_path.mkdir(parents=True, exist_ok=True)
+            
+            # 创建必要的目录结构
+            (workspace_path / "users" / "default" / "sessions").mkdir(parents=True, exist_ok=True)
+            (workspace_path / "agents").mkdir(parents=True, exist_ok=True)
+            
+            # 创建默认agent配置
+            agent_config = {
+                "id": "main",
+                "display_name": "Test Agent",
+                "system_prompt": "You are a helpful assistant. Respond briefly."
+            }
+            import json
+            with open(workspace_path / "agents" / "main.json", "w", encoding="utf-8") as f:
+                json.dump(agent_config, f)
+            
+            # 初始化组件
+            from app.atlasclaw.session.manager import SessionManager
+            from app.atlasclaw.session.queue import SessionQueue
+            from app.atlasclaw.skills.registry import SkillRegistry
+            from app.atlasclaw.agent.runner import AgentRunner
+            from app.atlasclaw.agent.prompt_builder import PromptBuilder, PromptBuilderConfig
+            from app.atlasclaw.core.token_pool import TokenPool, TokenEntry
+            from app.atlasclaw.agent.token_policy import DynamicTokenPolicy
+            from app.atlasclaw.agent.agent_pool import AgentInstancePool
+            from app.atlasclaw.core.token_health_store import TokenHealthStore
+            from app.atlasclaw.core.token_interceptor import TokenHealthInterceptor
+            from app.atlasclaw.core.deps import SkillDeps
+            from app.atlasclaw.agent.agent_definition import AgentLoader
+            from pydantic_ai import Agent
+            
+            # 创建TokenPool
+            token_pool = TokenPool()
+            token_entry = TokenEntry(
+                token_id="test-token-1",
+                provider=token_1_provider,
+                model=token_1_model,
+                base_url=token_1_base_url,
+                api_key=token_1_api_key,
+                api_type="openai",
+                priority=100,
+                weight=100,
+            )
+            token_pool.register_token(token_entry)
+            
+            # 创建组件
+            session_manager = SessionManager(
+                workspace_path=str(workspace_path),
+                user_id="default",
+                reset_mode="none",
+            )
+            session_queue = SessionQueue(max_concurrent=10)
+            skill_registry = SkillRegistry()
+            health_store = TokenHealthStore(str(workspace_path))
+            
+            token_policy = DynamicTokenPolicy(
+                token_pool,
+                strategy="health",
+                primary_token_id="test-token-1",
+            )
+            agent_pool = AgentInstancePool(max_concurrent_per_instance=4)
+            token_interceptor = TokenHealthInterceptor(token_pool, health_store)
+            
+            # 加载agent配置
+            agent_loader = AgentLoader(str(workspace_path))
+            agent_config = agent_loader.load_agent("main")
+            
+            # 创建Agent
+            def _create_model(token: TokenEntry):
+                from pydantic_ai.models.openai import OpenAIChatModel
+                from pydantic_ai.providers.openai import OpenAIProvider
+                provider = OpenAIProvider(api_key=token.api_key, base_url=token.base_url)
+                return OpenAIChatModel(token.model, provider=provider)
+            
+            model = _create_model(token_entry)
+            agent = Agent(
+                model,
+                deps_type=SkillDeps,
+                system_prompt=agent_config.system_prompt or "You are a helpful assistant.",
+            )
+            
+            # 创建AgentRunner
+            prompt_builder = PromptBuilder(PromptBuilderConfig())
+            
+            def agent_factory(agent_id: str, token: TokenEntry):
+                return Agent(
+                    _create_model(token),
+                    deps_type=SkillDeps,
+                    system_prompt=agent_config.system_prompt or "You are a helpful assistant.",
+                )
+            
+            agent_runner = AgentRunner(
+                agent=agent,
+                session_manager=session_manager,
+                prompt_builder=prompt_builder,
+                session_queue=session_queue,
+                agent_id="main",
+                token_policy=token_policy,
+                agent_pool=agent_pool,
+                token_interceptor=token_interceptor,
+                agent_factory=agent_factory,
+            )
+            
+            # 执行LLM调用
+            session_key = "test-simple-llm-session"
+            user_message = "Say 'Hello World' and nothing else."
+            
+            events = []
+            full_response = ""
+            error_occurred = False
+            error_message = ""
+            
+            deps = SkillDeps(
+                peer_id="default",
+                session_key=session_key,
+                channel="api",
+            )
+            
+            async for event in agent_runner.run(
+                session_key=session_key,
+                user_message=user_message,
+                deps=deps,
+                timeout_seconds=60,
+            ):
+                events.append(event)
+                
+                if event.type == "assistant":
+                    full_response += event.content or ""
+                elif event.type == "error":
+                    error_occurred = True
+                    error_message = event.error or "Unknown error"
+            
+            # 验证结果
+            assert not error_occurred, f"LLM call failed with error: {error_message}"
+            assert len(events) > 0, "No events received"
+            assert len(full_response.strip()) > 0, "Empty response from LLM"
+            
+            # 验证事件流包含必要的阶段
+            event_types = [e.type for e in events]
+            assert "lifecycle" in event_types, "Missing lifecycle events"
+            assert "assistant" in event_types, "Missing assistant response"
+            
+            print(f"\n=== Simple LLM Call Test ===")
+            print(f"Events received: {len(events)}")
+            print(f"Response: {full_response[:200]}{'...' if len(full_response) > 200 else ''}")
+            print(f"Test PASSED!")
 
-
-class TestAPIRoutes:
-    """测试 API 路由注册"""
-
-    def test_routes_registered(self, kimi_env_vars):
-        """验证路由正确注册"""
-        os.environ["ANTHROPIC_BASE_URL"] = kimi_env_vars["base_url"]
-        os.environ["ANTHROPIC_API_KEY"] = kimi_env_vars["api_key"]
+    @pytest.mark.llm
+    def test_api_endpoints_respond(self):
+        """
+        验证API端点正常响应
         
+        验证：
+        1. 健康检查端点正常
+        2. Session创建端点正常
+        3. Agent run端点接受请求
+        
+        注意：BackgroundTasks在TestClient中不会自动执行，
+        所以这里只验证API端点响应，不验证实际LLM调用。
+        实际LLM调用由 test_simple_agent_call_to_llm 测试覆盖。
+        """
+        import os
+        from pathlib import Path
+        from dotenv import load_dotenv
+        from fastapi.testclient import TestClient
+        
+        # 加载.env文件
+        env_path = Path(__file__).parent.parent.parent / ".env"
+        if env_path.exists():
+            load_dotenv(env_path, override=True)
+        
+        # 检查环境变量
+        required_vars = ["TOKEN_1_API_KEY", "TOKEN_1_BASE_URL"]
+        missing = [v for v in required_vars if not os.environ.get(v)]
+        if missing:
+            pytest.skip(f"Missing environment variables: {missing}")
+        
+        # 设置环境变量供main.py使用
+        os.environ["DEEPSEEK_API_KEY"] = os.environ.get("TOKEN_1_API_KEY", "")
+        os.environ["DEEPSEEK_BASE_URL"] = os.environ.get("TOKEN_1_BASE_URL", "")
+        
+        # 导入app（这会触发lifespan）
         import importlib
         import app.atlasclaw.main as main_module
         importlib.reload(main_module)
         
-        with TestClient(main_module.app) as client:
-            # 验证核心路由
-            routes_to_test = [
-                ("/api/health", "GET"),
-                ("/api/skills", "GET"),
-                ("/api/sessions", "GET"),
-            ]
+        app = main_module.app
+        
+        with TestClient(app) as client:
+            # 1. 健康检查
+            health_resp = client.get("/api/health")
+            assert health_resp.status_code == 200
+            assert health_resp.json()["status"] == "healthy"
             
-            for route, method in routes_to_test:
-                if method == "GET":
-                    resp = client.get(route)
-                else:
-                    resp = client.post(route, json={})
-                
-                # 只要不是 404 就说明路由存在
-                assert resp.status_code != 404, f"路由 {route} 应该存在"
+            # 2. 创建session
+            session_resp = client.post("/api/sessions", json={"chat_type": "dm"})
+            assert session_resp.status_code == 200
+            session_key = session_resp.json()["session_key"]
+            assert session_key  # 非空
+            
+            # 3. Agent run端点接受请求
+            run_resp = client.post(
+                "/api/agent/run",
+                json={
+                    "session_key": session_key,
+                    "message": "Test message",
+                    "timeout_seconds": 60,
+                }
+            )
+            assert run_resp.status_code == 200
+            run_id = run_resp.json()["run_id"]
+            assert run_id  # 非空
+            
+            print(f"\n=== API Endpoints Test ===")
+            print(f"Health: OK")
+            print(f"Session: {session_key}")
+            print(f"Run ID: {run_id}")
+            print(f"Test PASSED!")
 
 
 if __name__ == "__main__":

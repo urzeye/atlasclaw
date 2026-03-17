@@ -6,16 +6,42 @@
   "skills_root": "../atlasclaw-providers/skills",
   "channels_root": "../atlasclaw-providers/channels",
   "model": {
-    "primary": "${LLM_MODEL}",
+    "primary": "model-1",
     "fallbacks": [],
     "temperature": "${LLM_TEMPERATURE}",
-    "providers": {
-      "deepseek": {
-        "base_url": "${LLM_BASE_URL}",
-        "api_key": "${LLM_API_KEY}",
-        "api_type": "openai"
+    "selection_strategy": "health",
+    "tokens": [
+      {
+        "id": "model-1",
+        "provider": "${TOKEN_1_PROVIDER}",
+        "model": "${TOKEN_1_MODEL}",
+        "base_url": "${TOKEN_1_BASE_URL}",
+        "api_key": "${TOKEN_1_API_KEY}",
+        "api_type": "openai",
+        "priority": 100,
+        "weight": 100
+      },
+      {
+        "id": "model-2",
+        "provider": "${TOKEN_2_PROVIDER}",
+        "model": "${TOKEN_2_MODEL}",
+        "base_url": "${TOKEN_2_BASE_URL}",
+        "api_key": "${TOKEN_2_API_KEY}",
+        "api_type": "openai",
+        "priority": 90,
+        "weight": 80
+      },
+      {
+        "id": "model-3",
+        "provider": "${TOKEN_3_PROVIDER}",
+        "model": "${TOKEN_3_MODEL}",
+        "base_url": "${TOKEN_3_BASE_URL}",
+        "api_key": "${TOKEN_3_API_KEY}",
+        "api_type": "openai",
+        "priority": 80,
+        "weight": 60
       }
-    }
+    ]
   },
   "service_providers": {
     "smartcmp": {

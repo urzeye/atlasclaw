@@ -9,19 +9,25 @@
   "channels_root": "../atlasclaw-providers/channels",
 
   "model": {
-    "_comment": "Primary LLM configuration. Replace provider/model and env vars to match your deployment.",
-    "primary": "deepseek/deepseek-chat",
+    "_comment": "Token pool configuration for multi-token LLM access.",
+    "primary": "deepseek-main",
     "fallbacks": [],
     "temperature": 0.2,
-    "providers": {
-      "deepseek": {
-        "_comment": "OpenAI-compatible DeepSeek endpoint. Requires DS_API_KEY in the environment or .env.",
+    "selection_strategy": "health",
+    "tokens": [
+      {
+        "id": "deepseek-main",
+        "provider": "deepseek",
+        "model": "deepseek-chat",
         "base_url": "https://api.deepseek.com",
         "api_key": "${DS_API_KEY}",
-        "api_type": "openai"
+        "api_type": "openai",
+        "priority": 100,
+        "weight": 100
       }
-    }
+    ]
   },
+
 
   "service_providers": {
     "_comment": "Enterprise system instances used by skills. Instance names like dev/prod are referenced at runtime.",

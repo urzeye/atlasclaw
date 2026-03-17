@@ -15,7 +15,7 @@ Usage:
 from contextlib import asynccontextmanager
 from pathlib import Path
 import re
-from typing import Optional
+from typing import Any, Optional
 
 from dotenv import load_dotenv
 
@@ -50,6 +50,12 @@ from app.atlasclaw.channels.handlers.feishu import FeishuHandler
 from app.atlasclaw.channels.handlers.dingtalk import DingTalkHandler
 from app.atlasclaw.channels.handlers.wecom import WeComHandler
 from app.atlasclaw.auth import AuthRegistry
+from app.atlasclaw.agent.agent_pool import AgentInstancePool
+from app.atlasclaw.agent.token_policy import DynamicTokenPolicy
+from app.atlasclaw.core.token_health_store import TokenHealthStore
+from app.atlasclaw.core.token_interceptor import TokenHealthInterceptor
+from app.atlasclaw.core.token_pool import TokenEntry, TokenPool
+
 
 
 _global_provider_registry: Optional[ServiceProviderRegistry] = None
@@ -111,8 +117,107 @@ def _check_and_prompt_for_providers_skills(workspace_path: str | Path, providers
         print("=" * 70 + "\n")
 
 
+def _expand_env_value(value: str) -> str:
+    if value.startswith("${") and value.endswith("}"):
+        import os
+
+        return os.environ.get(value[2:-1], "")
+    return value
+
+
+def _create_pydantic_model(token: TokenEntry):
+    if token.api_type == "anthropic":
+        from pydantic_ai.models.anthropic import AnthropicModel
+        from pydantic_ai.providers.anthropic import AnthropicProvider
+
+        provider = AnthropicProvider(api_key=token.api_key, base_url=token.base_url)
+        return AnthropicModel(token.model, provider=provider)
+
+    from pydantic_ai.models.openai import OpenAIChatModel
+    from pydantic_ai.providers.openai import OpenAIProvider
+
+    provider = OpenAIProvider(api_key=token.api_key, base_url=token.base_url)
+    return OpenAIChatModel(token.model, provider=provider)
+
+
+def _build_token_entries(config) -> tuple[list[TokenEntry], Optional[str]]:
+    """Build token entries from config.
+
+    Returns:
+        tuple of (token_entries, primary_token_id)
+    """
+    tokens: list[TokenEntry] = []
+    for token_cfg in config.model.tokens:
+        tokens.append(
+            TokenEntry(
+                token_id=token_cfg.id,
+                provider=token_cfg.provider,
+                model=token_cfg.model,
+                base_url=_expand_env_value(token_cfg.base_url),
+                api_key=_expand_env_value(token_cfg.api_key),
+                api_type=token_cfg.api_type,
+                priority=token_cfg.priority,
+                weight=token_cfg.weight,
+            )
+        )
+
+    if tokens:
+        primary_id = config.model.primary
+        # Validate primary exists in tokens
+        if primary_id and not any(t.token_id == primary_id for t in tokens):
+            print(f"[AtlasClaw] Warning: primary token '{primary_id}' not found in tokens[], using first token")
+            primary_id = tokens[0].token_id
+        elif not primary_id:
+            primary_id = tokens[0].token_id
+        return tokens, primary_id
+
+    # Legacy fallback: build from providers config
+    model_name = config.model.primary
+    if "/" in model_name:
+        provider, model = model_name.split("/", 1)
+    else:
+        provider, model = "openai", model_name
+
+    provider_config = config.model.providers.get(provider, {})
+    if not provider_config:
+        raise RuntimeError(
+            f"Provider '{provider}' not configured in atlasclaw.json. "
+            f"Please add provider config under model.providers.{provider}"
+        )
+
+    base_url = _expand_env_value(provider_config.get("base_url", ""))
+    api_key = _expand_env_value(provider_config.get("api_key", ""))
+    api_type = provider_config.get("api_type", "openai")
+
+    if not base_url:
+        raise RuntimeError(
+            f"Missing base_url for provider '{provider}'. "
+            f"Set environment variable or configure in atlasclaw.json"
+        )
+    if not api_key:
+        raise RuntimeError(
+            f"Missing api_key for provider '{provider}'. "
+            f"Set environment variable or configure in atlasclaw.json"
+        )
+
+    primary_id = f"{provider}-primary"
+    return [
+        TokenEntry(
+            token_id=primary_id,
+            provider=provider,
+            model=model,
+            base_url=base_url,
+            api_key=api_key,
+            api_type=api_type,
+            priority=100,
+            weight=100,
+        )
+    ], primary_id
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+
     """Application lifespan handler for startup and shutdown."""
     global _session_manager, _session_queue, _skill_registry, _agent_runner, _global_provider_registry, _channel_manager
     
@@ -226,70 +331,46 @@ async def lifespan(app: FastAPI):
     if workspace_skills.exists():
         _skill_registry.load_from_directory(str(workspace_skills), location="workspace")
     
-    model_name = config.model.primary
-    
-    # Resolve model provider config from atlasclaw.json
-    if "/" in model_name:
-        provider, model = model_name.split("/", 1)
-    else:
-        provider, model = "openai", model_name
-    
-    provider_config = config.model.providers.get(provider, {})
-    if not provider_config:
-        raise RuntimeError(
-            f"Provider '{provider}' not configured in atlasclaw.json. "
-            f"Please add provider config under model.providers.{provider}"
-        )
-    
-    import os
-    base_url = provider_config.get("base_url", "")
-    api_key = provider_config.get("api_key", "")
-    api_type = provider_config.get("api_type", "openai")
-    
-    # Expand environment variables in config (e.g., "${ANTHROPIC_BASE_URL}")
-    if base_url.startswith("${") and base_url.endswith("}"):
-        env_var = base_url[2:-1]
-        base_url = os.environ.get(env_var, "")
-    if api_key.startswith("${") and api_key.endswith("}"):
-        env_var = api_key[2:-1]
-        api_key = os.environ.get(env_var, "")
-    
-    # Validate credentials
-    if not base_url:
-        raise RuntimeError(
-            f"Missing base_url for provider '{provider}'. "
-            f"Set environment variable or configure in atlasclaw.json"
-        )
-    if not api_key:
-        raise RuntimeError(
-            f"Missing api_key for provider '{provider}'. "
-            f"Set environment variable or configure in atlasclaw.json"
-        )
-    
-    # Set environment variables based on api_type
-    if api_type == "anthropic":
-        os.environ["ANTHROPIC_BASE_URL"] = base_url
-        os.environ["ANTHROPIC_API_KEY"] = api_key
-        pydantic_model = f"anthropic:{model}"
-    else:
-        # Default to OpenAI-compatible API
-        os.environ["OPENAI_BASE_URL"] = base_url
-        os.environ["OPENAI_API_KEY"] = api_key
-        pydantic_model = f"openai:{model}"
-    
-    # Create PydanticAI Agent
     from pydantic_ai import Agent
     from app.atlasclaw.core.deps import SkillDeps
-    
-    agent = Agent(
-        pydantic_model,
-        deps_type=SkillDeps,
-        system_prompt=main_agent_config.system_prompt or "You are AtlasClaw, an enterprise AI assistant.",
+
+    token_entries, primary_token_id = _build_token_entries(config)
+    token_pool = TokenPool()
+    for token in token_entries:
+        token_pool.register_token(token)
+
+    health_store = TokenHealthStore(workspace_path)
+    restored_health = health_store.load()
+    for token_id, health in restored_health.items():
+        token_pool.restore_health(token_id, health)
+
+    token_policy = DynamicTokenPolicy(
+        token_pool,
+        strategy=config.model.selection_strategy,
+        primary_token_id=primary_token_id,
     )
-    
-    # Register all skills as agent tools
-    _skill_registry.register_to_agent(agent)
-    
+    agent_pool = AgentInstancePool(max_concurrent_per_instance=4)
+    token_interceptor = TokenHealthInterceptor(token_pool, health_store)
+
+    agent_configs: dict[str, Any] = {"main": main_agent_config}
+
+    def _build_agent_for(agent_id: str, token: TokenEntry) -> Any:
+        agent_cfg = agent_configs.get(agent_id)
+        if agent_cfg is None:
+            agent_cfg = agent_loader.load_agent(agent_id)
+            agent_configs[agent_id] = agent_cfg
+        model_instance = _create_pydantic_model(token)
+        built_agent = Agent(
+            model_instance,
+            deps_type=SkillDeps,
+            system_prompt=agent_cfg.system_prompt or "You are AtlasClaw, an enterprise AI assistant.",
+        )
+        _skill_registry.register_to_agent(built_agent)
+        return built_agent
+
+    seed_token = token_pool.tokens.get(primary_token_id) or token_entries[0]
+    agent = _build_agent_for("main", seed_token)
+
     # Create AgentRunner
     prompt_builder = PromptBuilder(PromptBuilderConfig())
     _agent_runner = AgentRunner(
@@ -297,7 +378,13 @@ async def lifespan(app: FastAPI):
         session_manager=_session_manager,
         prompt_builder=prompt_builder,
         session_queue=_session_queue,
+        agent_id="main",
+        token_policy=token_policy,
+        agent_pool=agent_pool,
+        token_interceptor=token_interceptor,
+        agent_factory=_build_agent_for,
     )
+
     
     # Set agent runner on channel manager for message processing
     _channel_manager.set_agent_runner(_agent_runner)
@@ -329,7 +416,8 @@ async def lifespan(app: FastAPI):
     webhook_manager = WebhookDispatchManager(config.webhook, _skill_registry)
     webhook_manager.validate_startup()
     
-    print(f"[AtlasClaw] Agent created with model: {pydantic_model}")
+    print(f"[AtlasClaw] Agent created with model: {seed_token.provider}/{seed_token.model}")
+
 
     # Expose config on app.state so routes (e.g. SSO) can access it
     app.state.config = config
@@ -349,11 +437,13 @@ async def lifespan(app: FastAPI):
         session_queue=_session_queue,
         skill_registry=_skill_registry,
         agent_runner=_agent_runner,
+        agent_runners={"main": _agent_runner},
         service_provider_registry=_global_provider_registry,
         available_providers=available_providers,
         provider_instances=provider_instances,
         webhook_manager=webhook_manager,
     )
+
     set_api_context(api_context)
     
     print("[AtlasClaw] Application started successfully")

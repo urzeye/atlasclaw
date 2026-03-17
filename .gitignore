@@ -10,7 +10,7 @@ openspec/
 .atlasclaw/
 users/
 workspace/
-
+.codebuddy/
 **/__pycache__/
 **/.pytest_cache/
 
