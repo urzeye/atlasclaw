@@ -1,7 +1,0 @@
-{
-  "name": "Feishu",
-  "version": "1.0.0",
-  "description": "Feishu (Lark) messaging integration for AtlasClaw",
-  "author": "AtlasClaw Team",
-  "channel_types": ["feishu"]
-}

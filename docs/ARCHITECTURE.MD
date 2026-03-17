@@ -774,4 +774,4 @@ Configurable via `BlockChunkerConfig`, controls how streaming text is chunked fo
 > | Skill creation guide | [Skill Guide](./SKILL-GUIDE.MD) | Full document |
 > | Channel integration | [Channel Guide](./CHANNEL-GUIDE.MD) | Full document |
 > | Deployment & operations | [Deployment](./DEPLOYMENT.MD) | Full document |
-> | User/developer guide | [Guide](./GUIDE.MD) | Full document |
+> | User/developer guide | [Overview](./OVERVIEW.MD) | Full document |

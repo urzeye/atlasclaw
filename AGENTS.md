@@ -68,7 +68,7 @@ Before making any feature changes, bug fixes, or architectural decisions, consul
 | [Provider Guide](docs/PROVIDER_GUIDE.md) | Creating and deploying provider integrations |
 | [Skill Guide](docs/SKILL_GUIDE.md) | Creating executable, markdown, and hybrid skills |
 | [Channel Guide](docs/Channel%20Guide.md) | Channel handler implementation and integration |
-| [Guide](docs/GUIDE.md) | End-user/developer usage guide |
+| [Overview](docs/OVERVIEW.MD) | End-user/developer usage guide |
 
 ## Code Style Guidelines
 

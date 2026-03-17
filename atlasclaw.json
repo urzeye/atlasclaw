@@ -6,13 +6,13 @@
   "skills_root": "../atlasclaw-providers/skills",
   "channels_root": "../atlasclaw-providers/channels",
   "model": {
-    "primary": "deepseek/deepseek-chat",
+    "primary": "${LLM_MODEL}",
     "fallbacks": [],
-    "temperature": 0.2,
+    "temperature": "${LLM_TEMPERATURE}",
     "providers": {
       "deepseek": {
-        "base_url": "https://api.deepseek.com",
-        "api_key": "${DEEPSEEK_API_KEY}",
+        "base_url": "${LLM_BASE_URL}",
+        "api_key": "${LLM_API_KEY}",
         "api_type": "openai"
       }
     }

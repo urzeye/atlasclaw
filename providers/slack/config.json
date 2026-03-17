@@ -1,7 +1,0 @@
-{
-  "name": "Slack",
-  "version": "1.0.0",
-  "description": "Slack Socket Mode integration for AtlasClaw",
-  "author": "AtlasClaw Team",
-  "channel_types": ["slack"]
-}
