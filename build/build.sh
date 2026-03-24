@@ -121,7 +121,7 @@ fi
 # Set mode-specific variables and fixed image names
 if [[ "$MODE" == "opensource" ]]; then
     BASE_IMAGE_NAME="atlasclaw"
-    DOCKERFILE="Dockerfile.opensource"
+    DOCKERFILE="Dockerfile"
     COMPOSE_FILE="docker-compose.yml"
     DB_TYPE="sqlite"
 else
