@@ -139,16 +139,14 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
         credential = self._extract_provider_credential(request)
         if not credential:
-            if self._oidc_redirect_uri and (request.url.path == "/" or self._is_browser_request(request)):
-                return RedirectResponse(url="/api/auth/login", status_code=302)
-            return JSONResponse(status_code=401, content={"detail": "Invalid or expired token"})
+            return self._auth_failed_response(request)
 
         try:
             request.state.user_info = await self._strategy.resolve_user(credential)
             return await call_next(request)
         except AuthenticationError as exc:
             logger.debug("Auth failed for %s: %s", request.url.path, exc)
-            return JSONResponse(status_code=401, content={"detail": "Invalid or expired token"})
+            return self._auth_failed_response(request)
 
     def _build_user_info_from_payload(self, payload: dict, raw_token: str) -> UserInfo:
         roles = payload.get("roles", [])

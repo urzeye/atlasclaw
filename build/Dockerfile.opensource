@@ -5,9 +5,11 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install runtime dependencies
+# Install runtime dependencies (Python + Node.js for skills)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy and install Python dependencies
@@ -20,7 +22,7 @@ COPY migrations/ ./migrations/
 COPY alembic.ini .
 
 # Create necessary directories
-RUN mkdir -p /app/data /app/logs /app/config
+RUN mkdir -p /opt/atlasclaw/data /app/logs /app/config
 
 # Copy default config
 COPY config/atlasclaw.json /app/atlasclaw.json
